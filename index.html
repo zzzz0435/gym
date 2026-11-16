@@ -43,7 +43,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .btn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--input);font-weight:600;text-align:center;margin:8px 0}
 .btn.primary{background:var(--accent);color:var(--accent-ink)}
 .btn.danger{color:var(--danger)}
-.btn.sm{display:inline-block;width:auto;padding:7px 12px;margin:0;font-size:14px}
+.btn.sm{display:inline-block;width:auto;white-space:nowrap;padding:7px 12px;margin:0;font-size:14px}
 .row{display:flex;align-items:center;gap:8px}
 .row.between{justify-content:space-between}
 .grow{flex:1;min-width:0}
@@ -144,6 +144,25 @@ nav button{position:relative}
 .hero span{opacity:.85;font-size:14px}
 #rest{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,var(--text)) var(--p,0%),var(--text) var(--p,0%))}
 #rest.over{background:var(--ok)}
+/* ---- v3 ---- */
+.ex-name{background:none;padding:0;text-align:left}
+.ex-note{font-size:13px;background:hsl(45 95% 55% / .16);border-radius:8px;padding:5px 9px;margin:8px 0 0}
+.setno{width:30px;height:34px;border-radius:8px;font-weight:600;color:var(--muted)}
+.setno.warm{color:hsl(32 95% 50%);background:hsl(32 95% 50% / .16);font-weight:800}
+.seg{display:flex;background:var(--input);border-radius:11px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;padding:8px;border-radius:9px;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 3px rgb(0 0 0 / .15)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px;text-align:center}
+.cal span{font-size:11px;color:var(--muted);padding:2px 0}
+.cal-d{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 0;border-radius:10px;font-size:14px;color:var(--muted);min-height:40px}
+.cal-d.has{color:var(--text);background:var(--input)}
+.cal-d.today b{color:var(--accent)}
+.cal-d.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.cal-d:disabled{cursor:default}
+.link{color:var(--accent);font-size:13px;padding:0}
+.plates{display:flex;align-items:center;justify-content:center;gap:3px;margin:16px 0 8px;min-height:116px}
+.plate{width:24px;border-radius:4px;display:grid;place-items:center;font-size:11px;font-weight:800;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15)}
+.bar-end{width:46px;height:12px;background:#9aa1ad;border-radius:3px}
 </style>
 </head>
 <body>
@@ -185,7 +204,8 @@ const durMin = w => w.end && w.end - w.start < 6*3600e3 ? Math.max(1, Math.round
 const fmtDate = s => { const [y,m,d] = s.split('-').map(Number); return `${m}/${d}（${'日一二三四五六'[new Date(y,m-1,d).getDay()]}）`; };
 const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 const hasVal = s => String(s.w ?? '').trim() !== '' || String(s.r ?? '').trim() !== '';
-const fmtSet = s => String(s.w ?? '').trim() !== '' ? `${num(s.w)}×${s.r || '?'}` : `${s.r || '?'}次`;
+const isWork = s => s.t !== 'w';
+const fmtSet = s => (s.t === 'w' ? 'W ' : '') + (String(s.w ?? '').trim() !== '' ? `${num(s.w)}×${s.r || '?'}` : `${s.r || '?'}次`);
 
 /* ---------- 資料 ---------- */
 function seed(){
@@ -197,10 +217,10 @@ function seed(){
     {id:uid(), name:'拉日（背・二頭）', items:['引體向上','槓鈴划船','滑輪下拉','臉拉','啞鈴彎舉'].map(byName)},
     {id:uid(), name:'腿日', items:['槓鈴深蹲','羅馬尼亞硬舉','腿推機','腿彎舉','提踵'].map(byName)}
   ];
-  return {exercises, routines, workouts:[], active:null, settings:{rest:90}};
+  return {exercises, routines, workouts:[], bodyweight:[], active:null, settings:{rest:90}};
 }
 function load(){
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.exercises)) { s.settings ??= {rest:90}; return s; } } catch(e){}
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.exercises)) { s.settings ??= {rest:90}; s.bodyweight ??= []; return s; } } catch(e){}
   return seed();
 }
 let S = load();
@@ -211,7 +231,7 @@ function save(){
 save();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
 
-const ui = { tab:'train', picker:null, dialog:null, dlgResolve:null, editRoutine:null, progressEx:null, openHist:null, rest:null, restTotal:0, restBeeped:false };
+const ui = { plateT:'', calMonth:null, histDay:null, progTab:'ex', tab:'train', picker:null, dialog:null, dlgResolve:null, editRoutine:null, progressEx:null, openHist:null, rest:null, restTotal:0, restBeeped:false };
 const exOf = id => S.exercises.find(x => x.id === id) || {id, name:'（已刪除的動作）', part:'其他'};
 const chip = p => `<span class="chip" style="--h:${HUE[p] ?? 0}">${esc(p)}</span>`;
 const sortedW = () => [...S.workouts].sort((a,b) => b.date.localeCompare(a.date) || b.start - a.start);
@@ -227,14 +247,14 @@ function lastFor(exId, cur){
 }
 function newEntry(exId, w){
   const l = lastFor(exId, w);
-  const sets = l ? l.sets.map(s => ({w:s.w, r:s.r, done:false})) : [0,1,2].map(() => ({w:'', r:'', done:false}));
+  const sets = l ? l.sets.map(s => ({w:s.w, r:s.r, t:s.t, done:false})) : [0,1,2].map(() => ({w:'', r:'', done:false}));
   return {exId, sets};
 }
 function bestBefore(exId, cur){
   let b = 0;
   for (const w of S.workouts) {
     if (w.id === cur.id || w.date > cur.date) continue;
-    for (const e of w.entries) if (e.exId === exId) for (const s of e.sets) b = Math.max(b, num(s.w));
+    for (const e of w.entries) if (e.exId === exId) for (const s of e.sets) if (isWork(s)) b = Math.max(b, num(s.w));
   }
   return b;
 }
@@ -246,7 +266,7 @@ function weekStreak(){
   return n;
 }
 function partsOf(w){ return [...new Set(w.entries.map(e => exOf(e.exId).part))]; }
-function volumeOf(w){ let v = 0; for (const e of w.entries) for (const s of e.sets) v += num(s.w) * num(s.r); return v; }
+function volumeOf(w){ let v = 0; for (const e of w.entries) for (const s of e.sets) if (isWork(s)) v += num(s.w) * num(s.r); return v; }
 
 /* ---------- 畫面 ---------- */
 const ICONS = {
@@ -265,6 +285,7 @@ function render(){
   $('#view').innerHTML = v();
   renderModal();
   renderRest();
+  syncWake();
 }
 
 /* 訓練 */
@@ -278,6 +299,7 @@ function viewTrain(){
     <div class="row">
       <div class="grow"><div class="tb-title">${esc(r ? r.name : '自由訓練')}</div>
         <div class="muted small">${isLive(w) ? `⏱ <span id="elapsed">${fmtClock(Date.now() - w.start)}</span> · ` : `${fmtDate(w.date)} · `}${done}/${all.length} 組完成</div></div>
+      <button class="btn sm" data-act="plates">槓片</button>
       <button class="btn sm primary" data-act="finish">完成</button>
     </div>
     <div class="progress"><i style="width:${all.length ? done/all.length*100 : 0}%"></i></div>
@@ -288,21 +310,23 @@ function viewTrain(){
   <h2>備註</h2>
   <textarea data-bind="note" placeholder="今天狀況、感受…">${esc(w.note || '')}</textarea>
   <button class="btn primary" data-act="finish">完成訓練</button>
-  <button class="btn danger" data-act="discard">刪除這次訓練</button>`;
+  <button class="btn danger" data-act="discard">刪除這次訓練</button>
+  <p class="muted small" style="text-align:center">小技巧：點組號可切換為熱身組 <b>W</b>（不計入 PR 與總量）・點動作名稱看歷史與備註</p>`;
 }
 function entryCard(e, i, w){
   const x = exOf(e.exId), l = lastFor(e.exId, w), best = bestBefore(e.exId, w);
   const nDone = e.sets.filter(s => s.done).length, complete = e.sets.length && nDone === e.sets.length;
   return `<div class="card ${complete ? 'complete' : ''}">
     <div class="row">
-      <div class="grow"><span class="ex-name">${esc(x.name)}</span> ${chip(x.part)} <span class="badge">${complete ? '✓ 完成' : `${nDone}/${e.sets.length}`}</span></div>
+      <div class="grow"><button class="ex-name" data-act="exInfo" data-id="${x.id}">${esc(x.name)} <span class="muted" style="font-weight:400">›</span></button> ${chip(x.part)} <span class="badge">${complete ? '✓ 完成' : `${nDone}/${e.sets.length}`}</span></div>
       ${i>0 ? `<button class="icon-btn" data-act="upEntry" data-e="${i}" aria-label="上移">↑</button>` : ''}
       <button class="icon-btn" data-act="delEntry" data-e="${i}" aria-label="移除">✕</button>
     </div>
+    ${x.note ? `<div class="ex-note">📌 ${esc(x.note)}</div>` : ''}
     <div class="last">${l ? `上次 ${fmtDate(l.date)}：${l.sets.map(fmtSet).join(' · ')}` : '第一次做這個動作'}</div>
     <table class="sets"><thead><tr><th>組</th><th>公斤</th><th>次數</th><th></th><th></th></tr></thead><tbody>
     ${e.sets.map((s,j) => `<tr class="${s.done?'done':''}">
-      <td>${s.done && best > 0 && num(s.w) > best ? '<span title="新紀錄">🏆</span>' : j+1}</td>
+      <td><button class="setno ${s.t === 'w' ? 'warm' : ''}" data-act="setType" data-e="${i}" data-s="${j}" aria-label="切換熱身組">${s.t === 'w' ? 'W' : s.done && best > 0 && num(s.w) > best ? '🏆' : e.sets.slice(0, j+1).filter(isWork).length}</button></td>
       <td><input inputmode="decimal" data-f="w" data-e="${i}" data-s="${j}" value="${esc(s.w)}" placeholder="-"></td>
       <td><input inputmode="numeric" data-f="r" data-e="${i}" data-s="${j}" value="${esc(s.r)}" placeholder="-"></td>
       <td><button class="check" data-act="done" data-e="${i}" data-s="${j}" aria-label="完成這組">✓</button></td>
@@ -371,72 +395,110 @@ function viewRoutine(){
 
 /* 紀錄 */
 function viewHistory(){
-  const list = sortedW().filter(w => w.id !== S.active);
-  if (!list.length) return '<h1>訓練紀錄</h1><div class="empty">還沒有紀錄，完成第一次訓練後會出現在這裡</div>';
-  let month = '', html = '<h1>訓練紀錄</h1>';
-  for (const w of list) {
-    const m = w.date.slice(0,7);
-    if (m !== month) { month = m; html += `<h2>${m.replace('-','年')}月</h2>`; }
-    const open = ui.openHist === w.id;
-    html += `<div class="card">
-      <button class="row" style="width:100%;text-align:left" data-act="hToggle" data-id="${w.id}">
-        <div class="grow"><b>${fmtDate(w.date)}</b> <span class="muted">· ${w.entries.length} 動作 · ${Math.round(volumeOf(w)).toLocaleString()} kg${durMin(w) ? ` · ${durMin(w)} 分` : ''}</span>
-        <div class="chips" style="margin:4px 0 0">${partsOf(w).map(chip).join('')}</div></div>
-        <span class="muted">${open ? '▾' : '▸'}</span>
-      </button>
-      ${open ? `<div style="margin-top:8px">
-        ${w.entries.map(e => `<div class="hist-ex"><b>${esc(exOf(e.exId).name)}</b> <span class="muted">${e.sets.map(fmtSet).join(' · ')}</span></div>`).join('')}
-        ${w.note ? `<p class="muted">📝 ${esc(w.note)}</p>` : ''}
-        <div class="row" style="margin-top:8px"><button class="btn sm" data-act="hEdit" data-id="${w.id}">編輯</button>
-        <button class="btn sm danger" data-act="hDel" data-id="${w.id}">刪除</button></div>
-      </div>` : ''}
-    </div>`;
+  const all = S.workouts.filter(w => w.id !== S.active);
+  ui.calMonth ??= today().slice(0,7);
+  const [cy, cm] = ui.calMonth.split('-').map(Number);
+  const offset = (new Date(cy, cm-1, 1).getDay() + 6) % 7, nDays = new Date(cy, cm, 0).getDate();
+  const byDay = {};
+  for (const w of all) (byDay[w.date] ??= []).push(w);
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push('<div></div>');
+  for (let d = 1; d <= nDays; d++) {
+    const ds = `${ui.calMonth}-${pad(d)}`, ws = byDay[ds] || [];
+    const parts = [...new Set(ws.flatMap(partsOf))];
+    cells.push(`<button class="cal-d ${ds === today() ? 'today' : ''} ${ws.length ? 'has' : ''} ${ui.histDay === ds ? 'sel' : ''}" ${ws.length ? `data-act="hDay" data-d="${ds}"` : 'disabled'}>
+      <b>${d}</b><div class="dots">${parts.slice(0,3).map(p => `<i style="background:hsl(${HUE[p]} 75% 55%)"></i>`).join('')}</div></button>`);
   }
-  return html;
+  const monthW = all.filter(w => w.date.startsWith(ui.calMonth));
+  const list = sortedW().filter(w => w.id !== S.active && (ui.histDay ? w.date === ui.histDay : w.date.startsWith(ui.calMonth)));
+  return `
+  <h1>訓練紀錄</h1>
+  <div class="card">
+    <div class="row between">
+      <button class="icon-btn" data-act="calNav" data-n="-1" aria-label="上個月">‹</button>
+      <b>${cy} 年 ${cm} 月</b>
+      <button class="icon-btn" data-act="calNav" data-n="1" aria-label="下個月">›</button>
+    </div>
+    <div class="cal">${[...'一二三四五六日'].map(c => `<span>${c}</span>`).join('')}${cells.join('')}</div>
+    <div class="muted small" style="text-align:center;margin-top:8px">本月 ${monthW.length} 次 · ${Math.round(monthW.reduce((v, w) => v + volumeOf(w), 0)).toLocaleString()} kg
+      ${ui.histDay ? ` · <button class="link" data-act="hDay" data-d="${ui.histDay}">顯示整月</button>` : ''}</div>
+  </div>
+  ${list.map(histCard).join('') || '<div class="empty">這個月還沒有紀錄</div>'}`;
+}
+function histCard(w){
+  const open = ui.openHist === w.id;
+  return `<div class="card">
+    <button class="row" style="width:100%;text-align:left" data-act="hToggle" data-id="${w.id}">
+      <div class="grow"><b>${fmtDate(w.date)}</b> <span class="muted">· ${w.entries.length} 動作 · ${Math.round(volumeOf(w)).toLocaleString()} kg${durMin(w) ? ` · ${durMin(w)} 分` : ''}</span>
+      <div class="chips" style="margin:4px 0 0">${partsOf(w).map(chip).join('')}</div></div>
+      <span class="muted">${open ? '▾' : '▸'}</span>
+    </button>
+    ${open ? `<div style="margin-top:8px">
+      ${w.entries.map(e => `<div class="hist-ex"><b>${esc(exOf(e.exId).name)}</b> <span class="muted">${e.sets.map(fmtSet).join(' · ')}</span></div>`).join('')}
+      ${w.note ? `<p class="muted">📝 ${esc(w.note)}</p>` : ''}
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">
+        <button class="btn sm primary" data-act="hRepeat" data-id="${w.id}">再練一次</button>
+        <button class="btn sm" data-act="hSaveR" data-id="${w.id}">存成菜單</button>
+        <button class="btn sm" data-act="hEdit" data-id="${w.id}">編輯</button>
+        <button class="btn sm danger" data-act="hDel" data-id="${w.id}">刪除</button>
+      </div>
+    </div>` : ''}
+  </div>`;
 }
 
 /* 進度 */
-function viewProgress(){
-  const count = new Map();
-  for (const w of S.workouts) for (const e of w.entries) if (e.sets.some(hasVal)) count.set(e.exId, (count.get(e.exId)||0) + 1);
-  if (!count.size) return '<h1>進度</h1><div class="empty">記錄幾次訓練後，這裡會顯示重量進步曲線</div>';
-  if (!count.has(ui.progressEx)) ui.progressEx = [...count.entries()].sort((a,b) => b[1]-a[1])[0][0];
-  const exId = ui.progressEx, x = exOf(exId);
-  const sessions = [...S.workouts].sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start).flatMap(w => {
+function exSessions(exId){
+  return [...S.workouts].sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start).flatMap(w => {
+    if (w.id === S.active) return [];
     const e = w.entries.find(e => e.exId === exId); if (!e) return [];
-    const sets = e.sets.filter(hasVal); if (!sets.length) return [];
-    const maxW = Math.max(...sets.map(s => num(s.w)));
-    const e1 = Math.max(...sets.map(s => num(s.w) * (1 + num(s.r)/30)));
-    const maxR = Math.max(...sets.map(s => num(s.r)));
-    return [{date:w.date, sets, maxW, e1, maxR}];
+    const work = e.sets.filter(s => hasVal(s) && isWork(s)); if (!work.length) return [];
+    return [{
+      date: w.date, sets: e.sets.filter(hasVal),
+      maxW: Math.max(...work.map(s => num(s.w))),
+      maxR: Math.max(...work.map(s => num(s.r))),
+      e1: Math.max(...work.map(s => num(s.w) * (1 + num(s.r)/30)))
+    }];
   });
-  const bodyweight = sessions.every(s => s.maxW === 0);
-  const pr = Math.max(...sessions.map(s => bodyweight ? s.maxR : s.maxW));
-  const best1 = Math.max(...sessions.map(s => s.e1));
+}
+function exStatsHtml(ss){
+  const bwx = ss.every(s => s.maxW === 0);
+  const pr = Math.max(...ss.map(s => bwx ? s.maxR : s.maxW));
+  return `<div class="stat-grid" style="margin-top:10px">
+    <div class="stat"><b>${pr}${bwx ? '' : '<small style="font-size:12px"> kg</small>'}</b><span>${bwx ? '最多次數' : '最大重量 PR'}</span></div>
+    <div class="stat"><b>${bwx ? '-' : Math.round(Math.max(...ss.map(s => s.e1)))}</b><span>估計 1RM</span></div>
+    <div class="stat"><b>${ss.length}</b><span>做過次數</span></div>
+  </div>`;
+}
+function viewProgress(){
+  ui.progTab ??= 'ex';
+  const seg = `<div class="seg">${[['ex','動作'],['body','體重'],['pr','個人紀錄']].map(([k,l]) =>
+    `<button class="${ui.progTab === k ? 'on' : ''}" data-act="progTab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  return `<h1>進度</h1>${seg}${({ex:progEx, body:progBody, pr:progPR})[ui.progTab]()}`;
+}
+function progEx(){
+  const count = new Map();
+  for (const w of S.workouts) for (const e of w.entries) if (e.sets.some(s => hasVal(s) && isWork(s))) count.set(e.exId, (count.get(e.exId)||0) + 1);
+  if (!count.size) return '<div class="empty">記錄幾次訓練後，這裡會顯示重量進步曲線</div>';
+  if (!count.has(ui.progressEx)) ui.progressEx = [...count.entries()].sort((a,b) => b[1]-a[1])[0][0];
+  const exId = ui.progressEx, x = exOf(exId), sessions = exSessions(exId);
+  const bwx = sessions.every(s => s.maxW === 0);
 
-  // 部位統計（近 30 天，以組數計）
   const partSets = {}; const since = daysAgo(29);
   for (const w of S.workouts) if (w.date >= since) for (const e of w.entries) {
-    const p = exOf(e.exId).part; partSets[p] = (partSets[p]||0) + e.sets.filter(hasVal).length;
+    const p = exOf(e.exId).part; partSets[p] = (partSets[p]||0) + e.sets.filter(s => hasVal(s) && isWork(s)).length;
   }
   const maxPS = Math.max(1, ...Object.values(partSets));
-
   const opts = PARTS.map(p => {
     const xs = [...count.keys()].map(exOf).filter(x => x.part === p);
-    return xs.length ? `<optgroup label="${p}">${xs.map(x => `<option value="${x.id}" ${x.id===exId?'selected':''}>${esc(x.name)}</option>`).join('')}</optgroup>` : '';
+    return xs.length ? `<optgroup label="${p}">${xs.map(x => `<option value="${x.id}" ${x.id === exId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>` : '';
   }).join('');
 
   return `
-  <h1>進度</h1>
   <select data-bind="progressEx">${opts}</select>
-  <div class="stat-grid" style="margin-top:10px">
-    <div class="stat"><b>${pr}${bodyweight ? '' : '<small style="font-size:12px"> kg</small>'}</b><span>${bodyweight ? '最多次數' : '最大重量 PR'}</span></div>
-    <div class="stat"><b>${bodyweight ? '-' : Math.round(best1)}</b><span>估計 1RM</span></div>
-    <div class="stat"><b>${sessions.length}</b><span>做過次數</span></div>
-  </div>
+  ${exStatsHtml(sessions)}
   <div class="card">
-    <div class="muted">${esc(x.name)}・每次${bodyweight ? '最多次數' : '最大重量（kg）'}</div>
-    ${chart(sessions.slice(-20).map(s => ({x:s.date, y: bodyweight ? s.maxR : s.maxW})))}
+    <div class="muted">${esc(x.name)}・每次${bwx ? '最多次數' : '最大重量（kg）'}</div>
+    ${chart(sessions.slice(-20).map(s => ({x:s.date, y: bwx ? s.maxR : s.maxW})))}
   </div>
   <div class="card">
     ${sessions.slice(-8).reverse().map(s => `<div class="hist-ex"><b>${fmtDate(s.date)}</b> <span class="muted">${s.sets.map(fmtSet).join(' · ')}</span></div>`).join('')}
@@ -449,6 +511,89 @@ function viewProgress(){
       <span class="muted" style="width:34px;text-align:right">${partSets[p]}</span></div>`).join('') || '<div class="muted">近 30 天沒有紀錄</div>'}
   </div>`;
 }
+const diffTxt = v => { const r = Math.round(v*10)/10; return (r > 0 ? '+' : '') + r; };
+function progBody(){
+  const bw = [...S.bodyweight].sort((a,b) => a.date.localeCompare(b.date));
+  const cur = bw[bw.length-1], base = bw.filter(b => b.date <= daysAgo(30)).pop() || bw[0];
+  const todayV = bw.find(b => b.date === today());
+  return `
+  <div class="card"><div class="muted small" style="margin-bottom:6px">今天（${fmtDate(today())}）體重</div><div class="row">
+    <input id="bwIn" inputmode="decimal" placeholder="例如 68.5" value="${todayV ? todayV.kg : ''}">
+    <button class="btn sm primary" data-act="bwSave" style="padding:11px 18px">${todayV ? '更新' : '記錄'}</button></div></div>
+  ${bw.length ? `<div class="stat-grid">
+    <div class="stat"><b>${cur.kg}</b><span>目前 kg</span></div>
+    <div class="stat"><b>${diffTxt(cur.kg - base.kg)}</b><span>近 30 天變化</span></div>
+    <div class="stat"><b>${Math.min(...bw.map(b => b.kg))}</b><span>最低 kg</span></div></div>
+  <div class="card"><div class="muted">體重變化（kg）</div>${chart(bw.slice(-30).map(b => ({x:b.date, y:b.kg})))}</div>
+  <div class="card">${bw.slice(-10).reverse().map(b => `<div class="list-item" style="padding:6px 0">
+    <span class="grow">${fmtDate(b.date)}</span><b>${b.kg} kg</b>
+    <button class="icon-btn" data-act="bwDel" data-d="${b.date}" aria-label="刪除">✕</button></div>`).join('')}</div>`
+  : '<div class="empty">每天量一次體重記下來，這裡會顯示變化曲線</div>'}`;
+}
+function progPR(){
+  const rows = S.exercises.map(x => {
+    const ss = exSessions(x.id); if (!ss.length) return null;
+    const best = ss.reduce((a, s) => s.maxW > a.maxW || (s.maxW === a.maxW && s.maxR > a.maxR) ? s : a);
+    return {x, best};
+  }).filter(Boolean);
+  if (!rows.length) return '<div class="empty">完成訓練後，每個動作的最佳紀錄會列在這裡</div>';
+  return PARTS.map(p => {
+    const rs = rows.filter(r => r.x.part === p);
+    return rs.length ? `<h2>${chip(p)}</h2><div class="card">${rs.map(r => `
+      <button class="list-item" style="width:100%;text-align:left" data-act="prOpen" data-id="${r.x.id}">
+        <span class="grow">${esc(r.x.name)}</span>
+        <span style="text-align:right"><b>${r.best.maxW ? `${r.best.maxW} kg × ${r.best.sets.filter(isWork).find(s => num(s.w) === r.best.maxW)?.r || '?'}` : `${r.best.maxR} 次`}</b><br>
+        <span class="muted small">${fmtDate(r.best.date)}</span></span>
+      </button>`).join('')}</div>` : '';
+  }).join('');
+}
+function exInfoHtml(exId){
+  const x = exOf(exId), ss = exSessions(exId);
+  return `<div class="tb-title">${esc(x.name)} ${chip(x.part)}</div>
+    ${x.note ? `<div class="ex-note">📌 ${esc(x.note)}</div>` : ''}
+    ${ss.length ? `${exStatsHtml(ss)}
+      <div class="card" style="max-height:32vh;overflow:auto">${ss.slice(-10).reverse().map(s =>
+        `<div class="hist-ex"><b>${fmtDate(s.date)}</b> <span class="muted">${s.sets.map(fmtSet).join(' · ')}</span></div>`).join('')}</div>`
+      : '<p class="muted">還沒有這個動作的紀錄</p>'}
+    <button class="btn" data-act="exNote" data-id="${exId}">📌 ${x.note ? '編輯' : '新增'}備註（座椅高度、握法…）</button>`;
+}
+
+/* 槓片計算器 */
+const PLATE_COLOR = {25:'#e53935', 20:'#1e88e5', 15:'#fdd835', 10:'#43a047', 5:'#f5f5f5', 2.5:'#9e9e9e', 1.25:'#616161'};
+function plateHtml(){
+  const bar = S.settings.bar ?? 20;
+  return `<div class="tb-title">槓片計算器</div>
+    <input id="plateT" inputmode="decimal" placeholder="目標總重量（kg）" style="margin-top:10px" value="${esc(ui.plateT || '')}">
+    <div class="chips" style="align-items:center"><span class="muted small">槓鈴</span>${[20,15,10,0].map(b =>
+      `<button class="chip-btn ${b === bar ? 'on' : ''}" data-act="plateBar" data-b="${b}">${b ? b + ' kg' : '不含槓'}</button>`).join('')}</div>
+    <div id="plateOut">${plateOut()}</div>`;
+}
+function plateOut(){
+  const bar = S.settings.bar ?? 20, t = num(ui.plateT);
+  if (!t) return '<p class="muted" style="text-align:center">輸入目標重量，算出每邊要掛哪些槓片</p>';
+  let side = (t - bar) / 2;
+  if (side < 0) return '<p class="muted" style="text-align:center">比槓鈴還輕喔</p>';
+  const res = [];
+  for (const p of [25,20,15,10,5,2.5,1.25]) while (side >= p - 1e-9) { res.push(p); side -= p; }
+  return `<div class="plates"><div class="bar-end"></div>${res.map(p =>
+      `<div class="plate" style="background:${PLATE_COLOR[p]};color:${[15,5].includes(p) ? '#111' : '#fff'};height:${44 + p*2.6}px">${p}</div>`).join('')}</div>
+    <p style="text-align:center;margin:4px 0">每邊：<b>${res.join(' + ') || '不用掛'}</b>
+    ${side > 0.01 ? `<br><span class="muted small">差 ${Math.round(side*200)/100} kg 湊不到</span>` : ''}</p>`;
+}
+
+/* 螢幕常亮（iOS 16.4+） */
+let wakeLock = null;
+async function syncWake(){
+  try {
+    const want = S.active && S.settings.wake !== false && document.visibilityState === 'visible';
+    if (want && !wakeLock && navigator.wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!want && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch(e){ wakeLock = null; }
+}
+document.addEventListener('visibilitychange', syncWake);
+
 function chart(pts){
   if (pts.length < 2) return '<p class="muted">至少要兩次紀錄才會出現趨勢圖</p>';
   const W = 340, H = 170, L = 34, R = 10, T = 12, B = 22;
@@ -478,6 +623,8 @@ function viewSettings(){
       <input style="width:90px;text-align:center" inputmode="numeric" data-bind="rest" value="${S.settings.rest}"></div>
     <div class="muted" style="margin-top:6px">按下 ✓ 完成一組後自動開始倒數，填 0 關閉</div>
   </div>
+  <label class="card row between" style="cursor:pointer"><span>訓練中螢幕保持亮著</span>
+    <input type="checkbox" data-bind="wake" ${S.settings.wake !== false ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent)"></label>
   <h2>資料備份</h2>
   <div class="card">
     <div class="muted">資料只存在這支手機的瀏覽器裡。建議每隔一段時間匯出備份。</div>
@@ -678,6 +825,53 @@ const ACT = {
     renderRest();
   },
   restSkip: () => { ui.rest = null; renderRest(); },
+  setType: d => {
+    const s = activeW().entries[d.e].sets[d.s];
+    if (s.t === 'w') delete s.t; else s.t = 'w';
+    save(); render();
+  },
+  exInfo: d => ask('', {html:exInfoHtml(d.id), ok:'關閉', cancel:false}),
+  exNote: async d => {
+    closeDlg(false);
+    const x = S.exercises.find(x => x.id === d.id); if (!x) return;
+    const n = await ask('動作備註（例如座椅高度、握法）', {input:x.note || '', ok:'儲存'});
+    if (typeof n === 'string') { x.note = n.trim(); save(); render(); }
+  },
+  plates: () => ask('', {html:plateHtml(), ok:'關閉', cancel:false}),
+  plateBar: d => {
+    S.settings.bar = +d.b; save();
+    document.querySelectorAll('#modal [data-act=plateBar]').forEach(b => b.classList.toggle('on', b.dataset.b === d.b));
+    $('#plateOut').innerHTML = plateOut();
+  },
+  calNav: d => {
+    const [y, m] = ui.calMonth.split('-').map(Number);
+    ui.calMonth = ymd(new Date(y, m - 1 + +d.n, 1)).slice(0,7); ui.histDay = null; render();
+  },
+  hDay: d => { ui.histDay = ui.histDay === d.d ? null : d.d; render(); },
+  hRepeat: d => {
+    if (S.active) { ask('目前有進行中的訓練，請先完成或刪除它。', {cancel:false, ok:'好'}); return; }
+    const src = S.workouts.find(w => w.id === d.id);
+    const w = {id:uid(), date:today(), start:Date.now(), entries:[], note:'', routineId:src.routineId};
+    w.entries = [...new Set(src.entries.map(e => e.exId))].map(id => newEntry(id, w));
+    S.workouts.push(w); S.active = w.id; ui.tab = 'train'; save(); render(); window.scrollTo(0,0);
+  },
+  hSaveR: async d => {
+    const src = S.workouts.find(w => w.id === d.id);
+    const n = await ask('菜單名稱', {input:`${partsOf(src).join('・')}日`, ok:'儲存'});
+    if (typeof n === 'string' && n.trim()) {
+      S.routines.push({id:uid(), name:n.trim(), items:[...new Set(src.entries.map(e => e.exId))]});
+      save(); toast('已存成菜單');
+    }
+  },
+  progTab: d => { ui.progTab = d.k; render(); },
+  prOpen: d => { ui.progressEx = d.id; ui.progTab = 'ex'; render(); window.scrollTo(0,0); },
+  bwSave: () => {
+    const v = num($('#bwIn').value);
+    if (v <= 0) { toast('請輸入體重'); return; }
+    S.bodyweight = S.bodyweight.filter(b => b.date !== today());
+    S.bodyweight.push({date:today(), kg:Math.round(v*10)/10}); save(); render(); toast('已記錄體重');
+  },
+  bwDel: d => { S.bodyweight = S.bodyweight.filter(b => b.date !== d.d); save(); render(); },
   // 菜單
   rNew: () => { ui.editRoutine = {id:null, name:'', items:[]}; render(); },
   rEdit: d => { const r = S.routines.find(r => r.id === d.id); ui.editRoutine = {...r, items:[...r.items]}; render(); },
@@ -759,6 +953,7 @@ document.addEventListener('input', e => {
   const t = e.target, d = t.dataset;
   if (d.f) { activeW().entries[d.e].sets[d.s][d.f] = t.value.replace(',', '.'); save(); return; }
   if (t.id === 'pq') { ui.picker.q = t.value; renderPickerList(); return; }
+  if (t.id === 'plateT') { ui.plateT = t.value; $('#plateOut').innerHTML = plateOut(); return; }
   switch (d.bind) {
     case 'note': activeW().note = t.value; save(); break;
     case 'rname': ui.editRoutine.name = t.value; break;
@@ -769,6 +964,7 @@ document.addEventListener('change', e => {
   const t = e.target, d = t.dataset;
   if (d.bind === 'wdate' && t.value) { activeW().date = t.value; save(); render(); }
   if (d.bind === 'progressEx') { ui.progressEx = t.value; render(); }
+  if (d.bind === 'wake') { S.settings.wake = t.checked; save(); syncWake(); }
   if (t.id === 'importFile' && t.files[0]) {
     const fr = new FileReader();
     fr.onload = async () => {
@@ -778,7 +974,7 @@ document.addEventListener('change', e => {
         if (!Array.isArray(data.exercises) || !Array.isArray(data.workouts)) throw 0;
       } catch(_) { ask('檔案格式不正確', {cancel:false, ok:'好'}); return; }
       if (!await ask(`匯入 ${data.workouts.length} 筆訓練紀錄？\n目前手機上的資料會被取代。`, {ok:'匯入'})) return;
-      data.routines ??= []; data.settings ??= {rest:90};
+      data.routines ??= []; data.settings ??= {rest:90}; data.bodyweight ??= [];
       S = data; save(); render(); toast('匯入成功');
     };
     fr.readAsText(t.files[0]); t.value = '';

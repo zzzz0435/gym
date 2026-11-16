@@ -1,5 +1,5 @@
 // 離線快取：有網路時抓最新版，沒網路時用快取
-const CACHE = 'gymlog-v2';
+const CACHE = 'gymlog-v3';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
